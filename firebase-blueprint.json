@@ -1,0 +1,182 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "status": { "enum": ["PENDING", "APPROVED", "BLOCKED"] },
+        "isAdmin": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Transaction category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "enum": ["INCOME", "EXPENSE"] },
+        "parentId": { "type": "string" }
+      },
+      "required": ["name", "type"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Transaction supplier/client",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Bank": {
+      "title": "Bank",
+      "description": "Bank account",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "enum": ["INCOME", "EXPENSE"] },
+        "categoryId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "bankId": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "enum": ["PENDING", "PAID"] },
+        "isFixed": { "type": "boolean" },
+        "installmentsCount": { "type": "number" },
+        "installmentNumber": { "type": "number" }
+      },
+      "required": ["description", "amount", "type", "categoryId", "bankId", "paymentMethod", "date", "status"]
+    },
+    "ShareRequest": {
+      "title": "Share Request",
+      "description": "Request to share account access with another user",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "receiverEmail": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "enum": ["PENDING", "ACCEPTED", "REJECTED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "senderEmail", "receiverEmail", "status", "createdAt"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Client budget estimates with products",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "client": { "type": "object" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "date": { "type": "string" },
+        "status": { "enum": ["PENDING", "APPROVED", "REJECTED", "EXPIRED"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "client", "items", "totalAmount", "date", "status", "createdAt"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Registered customer detail info",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tradeName": { "type": "string" },
+        "document": { "type": "string" },
+        "cep": { "type": "string" },
+        "address": { "type": "string" },
+        "number": { "type": "string" },
+        "complement": { "type": "string" },
+        "bairro": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "reference": { "type": "string" },
+        "contact": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "document", "createdAt"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Client scheduled appointment and service order details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "client": { "type": "object" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "serviceDescription": { "type": "string" },
+        "equipment": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "enum": ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELED"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "client", "date", "time", "serviceDescription", "totalAmount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/profile/data": {
+      "schema": "User",
+      "description": "Public user profile data"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User's custom categories"
+    },
+    "/users/{userId}/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "User's custom suppliers"
+    },
+    "/users/{userId}/banks/{bankId}": {
+      "schema": "Bank",
+      "description": "User's custom banks"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User's financial transactions"
+    },
+    "/users/{userId}/budgets/{budgetId}": {
+      "schema": "Budget",
+      "description": "User's budget estimates"
+    },
+    "/users/{userId}/clients/{clientId}": {
+      "schema": "Client",
+      "description": "User's registered clients database"
+    },
+    "/users/{userId}/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "User's scheduled appointments and service orders"
+    },
+    "/system_profiles/{userId}": {
+      "schema": "User",
+      "description": "Global user profiles for administration"
+    },
+    "/share_requests/{requestId}": {
+      "schema": "ShareRequest",
+      "description": "Account sharing invitations"
+    }
+  }
+}

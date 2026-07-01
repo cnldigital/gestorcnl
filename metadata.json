@@ -1,0 +1,6 @@
+{
+  "name": "Gestor CNL",
+  "description": "Sistema de gestão financeira avançado para CNL Digital, com inteligência artificial e controle de fluxo de caixa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

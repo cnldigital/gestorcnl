@@ -1,0 +1,228 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email.lower() == 'caiquel555@gmail.com') ||
+        (exists(/databases/$(database)/documents/system_profiles/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/system_profiles/$(request.auth.uid)).data.isAdmin == true)
+      );
+    }
+
+    function isApproved() {
+      return isSignedIn() && (
+        (request.auth.token.email.lower() == 'caiquel555@gmail.com') ||
+        (exists(/databases/$(database)/documents/system_profiles/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/system_profiles/$(request.auth.uid)).data.status == 'APPROVED')
+      );
+    }
+
+    function isSharedWith(userId) {
+      // Reciprocal: Allow access if userId shared with me OR I shared with userId (and accepted)
+      let fromTargetToMe = userId + "_" + request.auth.uid;
+      let fromMeToTarget = request.auth.uid + "_" + userId;
+      
+      return (
+        (exists(/databases/$(database)/documents/share_requests/$(fromTargetToMe)) &&
+         get(/databases/$(database)/documents/share_requests/$(fromTargetToMe)).data.status == 'ACCEPTED') ||
+        (exists(/databases/$(database)/documents/share_requests/$(fromMeToTarget)) &&
+         get(/databases/$(database)/documents/share_requests/$(fromMeToTarget)).data.status == 'ACCEPTED')
+      );
+    }
+
+    function isValidShareRequest(data) {
+      return data.senderId is string && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() <= 200 &&
+             data.senderEmail is string && data.senderEmail.size() <= 200 &&
+             data.receiverEmail is string && data.receiverEmail.size() <= 200 &&
+             data.receiverId is string && data.receiverId.size() <= 128 &&
+             data.status in ['PENDING', 'ACCEPTED', 'REJECTED'] &&
+             data.createdAt is string && data.updatedAt is string;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validations
+    function isValidTransaction(data) {
+      return data.description is string && data.description.size() <= 500 &&
+             data.amount is number &&
+             data.type in ['INCOME', 'EXPENSE'] &&
+             data.status in ['PENDING', 'PAID'] &&
+             data.date is string && data.date.size() == 10 &&
+             data.categoryId is string &&
+             data.bankId is string &&
+             data.paymentMethod is string &&
+             (!('supplierId' in data) || data.supplierId is string) &&
+             (!('isFixed' in data) || data.isFixed is bool) &&
+             (!('installmentsCount' in data) || data.installmentsCount is number) &&
+             (!('installmentNumber' in data) || data.installmentNumber is number);
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'type']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.type in ['INCOME', 'EXPENSE'];
+    }
+
+    function isValidSupplier(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() <= 200;
+    }
+
+    function isValidBank(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() <= 100;
+    }
+
+    function isValidUser(data) {
+      return (!('name' in data) || (data.name is string && data.name.size() <= 200)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1200000)) &&
+             (!('status' in data) || data.status in ['PENDING', 'APPROVED', 'BLOCKED']) &&
+             (!('isAdmin' in data) || data.isAdmin is bool) &&
+             (!('theme' in data) || data.theme in ['light', 'dark']) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidBudget(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.totalAmount is number &&
+             data.status in ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] &&
+             data.date is string && data.date.size() == 10 &&
+             data.createdAt is string &&
+             data.client is map &&
+             data.items is list &&
+             (!('number' in data) || data.number is number) &&
+             (!('updatedAt' in data) || data.updatedAt is string);
+    }
+
+    function isValidClient(data) {
+      return data.name is string && data.name.size() <= 200 &&
+             data.document is string && data.document.size() <= 30 &&
+             data.createdAt is string &&
+             data.get('tradeName', '') is string &&
+             data.get('cep', '') is string &&
+             data.get('address', '') is string &&
+             data.get('number', '') is string &&
+             data.get('complement', '') is string &&
+             data.get('bairro', '') is string &&
+             data.get('city', '') is string &&
+             data.get('state', '') is string &&
+             data.get('reference', '') is string &&
+             data.get('contact', '') is string &&
+             data.get('email', '') is string;
+    }
+
+    function isValidAppointment(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.date is string && data.date.size() == 10 &&
+             data.time is string && data.time.size() <= 8 &&
+             data.serviceDescription is string && data.serviceDescription.size() <= 2000 &&
+             data.status in ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED'] &&
+             data.totalAmount is number &&
+             data.client is map &&
+             data.createdAt is string &&
+             (!('clientId' in data) || data.clientId is string) &&
+             (!('equipment' in data) || data.equipment is string) &&
+             (!('notes' in data) || data.notes is string);
+    }
+
+    // Collection matches
+    match /system_profiles/{profileId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(profileId) && 
+                      (incoming().status == 'PENDING' || request.auth.token.email.lower() == 'caiquel555@gmail.com');
+      allow update: if isAdmin() || (isOwner(profileId) && incoming().isAdmin == existing().isAdmin);
+    }
+
+    match /users/{userId} {
+      match /profile/data {
+        allow get: if (isOwner(userId) || isSharedWith(userId));
+        allow write: if isOwner(userId);
+      }
+
+      match /categories/{categoryId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidCategory(incoming()) && isValidId(categoryId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+
+      match /suppliers/{supplierId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidSupplier(incoming()) && isValidId(supplierId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+
+      match /banks/{bankId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidBank(incoming()) && isValidId(bankId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+
+      match /transactions/{transactionId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidTransaction(incoming()) && isValidId(transactionId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+
+      match /budgets/{budgetId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidBudget(incoming()) && isValidId(budgetId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+
+      match /clients/{clientId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidClient(incoming()) && isValidId(clientId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+
+      match /appointments/{appointmentId} {
+        allow list, get: if (isOwner(userId) || isSharedWith(userId));
+        allow create, update: if (isOwner(userId) || isSharedWith(userId)) && isValidAppointment(incoming()) && isValidId(appointmentId);
+        allow delete: if (isOwner(userId) || isSharedWith(userId));
+      }
+    }
+
+    match /share_requests/{requestId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid
+      );
+      allow create: if isSignedIn() && 
+                      incoming().senderId == request.auth.uid && 
+                      incoming().status == 'PENDING';
+      allow update: if isSignedIn() && (
+        (isOwner(existing().receiverId) && incoming().senderId == existing().senderId) ||
+        (isOwner(existing().senderId) && incoming().senderId == existing().senderId)
+      );
+      allow delete: if isSignedIn() && (isOwner(existing().senderId) || isOwner(existing().receiverId));
+    }
+  }
+}
